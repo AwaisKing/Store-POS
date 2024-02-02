@@ -1,121 +1,112 @@
-let cart = [];
-let index = 0;
-let allUsers = [];
-let allProducts = [];
-let allCategories = [];
-let allTransactions = [];
-let sold = [];
-let state = [];
-let sold_items = [];
+let path          = require('path');
+let moment        = require('moment');
+let Swal          = require('sweetalert2');
+let {ipcRenderer} = require('electron');
+let Store         = require('electron-store');
+let btoa          = require('btoa');
+let html2canvas   = require('html2canvas');
+let JsBarcode     = require('jsbarcode');
+let macaddress    = require('macaddress');
+const {jsPDF}     = require('jspdf');
+const {app}       = window.require('@electron/remote');
+
+
+let cart                  = [];
+let index                 = 0;
+let allUsers              = [];
+let allProducts           = [];
+let allCategories         = [];
+let allTransactions       = [];
+let sold                  = [];
+let state                 = [];
+let sold_items            = [];
 let item;
-let auth;
-let holdOrder = 0;
-let vat = 0;
-let perms = null;
-let deleteId = 0;
-let paymentType = 0;
-let receipt = '';
-let totalVat = 0;
-let subTotal = 0;
-let method = '';
-let order_index = 0;
-let user_index = 0;
-let product_index = 0;
+let holdOrder             = 0;
+let vat                   = 0;
+let perms                 = null;
+let deleteId              = 0;
+let paymentType           = 0;
+let receipt               = '';
+let totalVat              = 0;
+let subTotal              = 0;
+let method                = '';
+let order_index           = 0;
+let user_index            = 0;
+let product_index         = 0;
 let transaction_index;
-let host = 'localhost';
-let path = require('path');
-let port = '8001';
-let moment = require('moment');
-let Swal = require('sweetalert2');
-let { ipcRenderer } = require('electron');
-let dotInterval = setInterval(function () { $(".dot").text('.') }, 3000);
-let Store = require('electron-store');
-const remote = require('electron').remote;
-const app = remote.app;
-let img_path = app.getPath('appData') + '/POS/uploads/';
-let api = 'http://' + host + ':' + port + '/api/';
-let btoa = require('btoa');
-let jsPDF = require('jspdf');
-let html2canvas = require('html2canvas');
-let JsBarcode = require('jsbarcode');
-let macaddress = require('macaddress');
-let categories = [];
-let holdOrderList = [];
-let customerOrderList = [];
-let ownUserEdit = null;
-let totalPrice = 0;
-let orderTotal = 0;
-let auth_error = 'Incorrect username or password';
-let auth_empty = 'Please enter a username and password';
-let holdOrderlocation = $("#randerHoldOrders");
-let customerOrderLocation = $("#randerCustomerOrders");
-let storage = new Store();
+let host                  = 'localhost';
+let port                  = '8001';
+let img_path              = app.getPath('appData') + '/' + process.env.npm_package_name + '/uploads/';
+let dotInterval           = setInterval(() => { $('.dot').text('.') }, 3000);
+let api                   = 'http://' + host + ':' + port + '/api/';
+let categories            = [];
+let holdOrderList         = [];
+let customerOrderList     = [];
+let ownUserEdit           = null;
+let totalPrice            = 0;
+let orderTotal            = 0;
+let auth_error            = 'Incorrect username or password';
+let auth_empty            = 'Please enter a username and password';
+let holdOrderlocation     = $('#randerHoldOrders');
+let customerOrderLocation = $('#randerCustomerOrders');
+let storage               = new Store();
 let settings;
 let platform;
-let user = {};
-let start = moment().startOf('month');
-let end = moment();
-let start_date = moment(start).toDate();
-let end_date = moment(end).toDate();
-let by_till = 0;
-let by_user = 0;
-let by_status = 1;
+let start                 = moment().startOf('month');
+let end                   = moment();
+let start_date            = moment(start).toDate();
+let end_date              = moment(end).toDate();
+let by_till               = 0;
+let by_user               = 0;
+let by_status             = 1;
 
-$(function () {
-
-    function cb(start, end) {
+$(() => {
+    const cb = (start, end) => {
         $('#reportrange span').html(start.format('MMMM D, YYYY') + '  -  ' + end.format('MMMM D, YYYY'));
-    }
-
+    };
     $('#reportrange').daterangepicker({
-        startDate: start,
-        endDate: end,
-        autoApply: true,
-        timePicker: true,
-        timePicker24Hour: true,
+        startDate          : start,
+        endDate            : end,
+        autoApply          : true,
+        timePicker         : true,
+        timePicker24Hour   : true,
         timePickerIncrement: 10,
-        timePickerSeconds: true,
+        timePickerSeconds  : true,
         // minDate: '',
         ranges: {
-            'Today': [moment().startOf('day'), moment()],
-            'Yesterday': [moment().subtract(1, 'days').startOf('day'), moment().subtract(1, 'days').endOf('day')],
-            'Last 7 Days': [moment().subtract(6, 'days').startOf('day'), moment().endOf('day')],
+            'Today'       : [moment().startOf('day'), moment()],
+            'Yesterday'   : [moment().subtract(1, 'days').startOf('day'), moment().subtract(1, 'days').endOf('day')],
+            'Last 7 Days' : [moment().subtract(6, 'days').startOf('day'), moment().endOf('day')],
             'Last 30 Days': [moment().subtract(29, 'days').startOf('day'), moment().endOf('day')],
-            'This Month': [moment().startOf('month'), moment().endOf('month')],
-            'This Month': [moment().startOf('month'), moment()],
-            'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
-        }
+            'This Month'  : [moment().startOf('month'), moment().endOf('month')],
+            'This Month'  : [moment().startOf('month'), moment()],
+            'Last Month'  : [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')],
+        },
     }, cb);
-
     cb(start, end);
-
 });
 
-
 $.fn.serializeObject = function () {
-    var o = {};
-    var a = this.serializeArray();
+    let o = {};
+    let a = this.serializeArray();
     $.each(a, function () {
         if (o[this.name]) {
-            if (!o[this.name].push) {
-                o[this.name] = [o[this.name]];
-            }
+            if (!o[this.name].push) o[this.name] = [o[this.name]];
             o[this.name].push(this.value || '');
-        } else {
-            o[this.name] = this.value || '';
-        }
+        } else o[this.name] = this.value || '';
     });
     return o;
 };
 
 
-auth = storage.get('auth');
-user = storage.get('user');
+let user = {};
+let auth = storage.get('auth');
+user     = storage.get('user');
 
 
 if (auth == undefined) {
     $.get(api + 'users/check/', function (data) { });
-    $("#loading").show();
+    $('#loading').show();
     authenticate();
 
 } else {
@@ -131,7 +122,7 @@ if (auth == undefined) {
     if (platform != undefined) {
 
         if (platform.app == 'Network Point of Sale Terminal') {
-            api = 'http://' + platform.ip + ':' + port + '/api/';
+            api   = 'http://' + platform.ip + ':' + port + '/api/';
             perms = true;
         }
     }
@@ -152,10 +143,9 @@ if (auth == undefined) {
     });
 
 
-
     $(document).ready(function () {
 
-        $(".loading").hide();
+        $('.loading').hide();
 
         loadCategories();
         loadProducts();
@@ -163,24 +153,22 @@ if (auth == undefined) {
 
 
         if (settings && settings.symbol) {
-            $("#price_curr, #payment_curr, #change_curr").text(settings.symbol);
+            $('#price_curr, #payment_curr, #change_curr').text(settings.symbol);
         }
 
 
         setTimeout(function () {
             if (settings == undefined && auth != undefined) {
                 $('#settingsModal').modal('show');
-            }
-            else {
+            } else {
                 vat = parseFloat(settings.percentage);
-                $("#taxInfo").text(settings.charge_tax ? vat : 0);
+                $('#taxInfo').text(settings.charge_tax ? vat : 0);
             }
 
         }, 1500);
 
 
-
-        $("#settingsModal").on("hide.bs.modal", function () {
+        $('#settingsModal').on('hide.bs.modal', function () {
 
             setTimeout(function () {
                 if (settings == undefined && auth != undefined) {
@@ -191,11 +179,16 @@ if (auth == undefined) {
         });
 
 
-        if (0 == user.perm_products) { $(".p_one").hide() };
-        if (0 == user.perm_categories) { $(".p_two").hide() };
-        if (0 == user.perm_transactions) { $(".p_three").hide() };
-        if (0 == user.perm_users) { $(".p_four").hide() };
-        if (0 == user.perm_settings) { $(".p_five").hide() };
+        if (0 == user.perm_products) { $('.p_one').hide() }
+        ;
+        if (0 == user.perm_categories) { $('.p_two').hide() }
+        ;
+        if (0 == user.perm_transactions) { $('.p_three').hide() }
+        ;
+        if (0 == user.perm_users) { $('.p_four').hide() }
+        ;
+        if (0 == user.perm_settings) { $('.p_five').hide() }
+        ;
 
         function loadProducts() {
 
@@ -221,7 +214,7 @@ if (auth == undefined) {
                     let item_info = `<div class="col-lg-2 box ${item.category}"
                                 onclick="$(this).addToCart(${item._id}, ${item.quantity}, ${item.stock})">
                             <div class="widget-panel widget-style-2 ">                    
-                            <div id="image"><img src="${item.img == "" ? "./assets/images/default.jpg" : img_path + item.img}" id="product_img" alt=""></div>                    
+                            <div id="image"><img src="${item.img == '' ? './assets/images/default.jpg' : img_path + item.img}" id="product_img" alt=""></div>                    
                                         <div class="text-muted m-t-5 text-center">
                                         <div class="name" id="product_name">${item.name}</div> 
                                         <span class="sku">${item.sku}</span>
@@ -283,16 +276,14 @@ if (auth == undefined) {
                     $.get(api + 'inventory/product/' + id, function (data) {
                         $(this).addProductToCart(data);
                     });
-                }
-                else {
+                } else {
                     Swal.fire(
                         'Out of stock!',
                         'This item is currently unavailable',
-                        'info'
+                        'info',
                     );
                 }
-            }
-            else {
+            } else {
                 $.get(api + 'inventory/product/' + id, function (data) {
                     $(this).addProductToCart(data);
                 });
@@ -304,102 +295,96 @@ if (auth == undefined) {
         function barcodeSearch(e) {
 
             e.preventDefault();
-            $("#basic-addon2").empty();
-            $("#basic-addon2").append(
-                $('<i>', { class: 'fa fa-spinner fa-spin' })
+            $('#basic-addon2').empty();
+            $('#basic-addon2').append(
+                $('<i>', {class: 'fa fa-spinner fa-spin'}),
             );
 
             let req = {
-                skuCode: $("#skuCode").val()
+                skuCode: $('#skuCode').val(),
             }
 
             $.ajax({
-                url: api + 'inventory/product/sku',
-                type: 'POST',
-                data: JSON.stringify(req),
+                url        : api + 'inventory/product/sku',
+                type       : 'POST',
+                data       : JSON.stringify(req),
                 contentType: 'application/json; charset=utf-8',
-                cache: false,
+                cache      : false,
                 processData: false,
-                success: function (data) {
+                success    : function (data) {
 
                     if (data._id != undefined && data.quantity >= 1) {
                         $(this).addProductToCart(data);
-                        $("#searchBarCode").get(0).reset();
-                        $("#basic-addon2").empty();
-                        $("#basic-addon2").append(
-                            $('<i>', { class: 'glyphicon glyphicon-ok' })
+                        $('#searchBarCode').get(0).reset();
+                        $('#basic-addon2').empty();
+                        $('#basic-addon2').append(
+                            $('<i>', {class: 'glyphicon glyphicon-ok'}),
                         )
-                    }
-                    else if (data.quantity < 1) {
+                    } else if (data.quantity < 1) {
                         Swal.fire(
                             'Out of stock!',
                             'This item is currently unavailable',
-                            'info'
+                            'info',
                         );
-                    }
-                    else {
+                    } else {
 
                         Swal.fire(
                             'Not Found!',
-                            '<b>' + $("#skuCode").val() + '</b> is not a valid barcode!',
-                            'warning'
+                            '<b>' + $('#skuCode').val() + '</b> is not a valid barcode!',
+                            'warning',
                         );
 
-                        $("#searchBarCode").get(0).reset();
-                        $("#basic-addon2").empty();
-                        $("#basic-addon2").append(
-                            $('<i>', { class: 'glyphicon glyphicon-ok' })
+                        $('#searchBarCode').get(0).reset();
+                        $('#basic-addon2').empty();
+                        $('#basic-addon2').append(
+                            $('<i>', {class: 'glyphicon glyphicon-ok'}),
                         )
                     }
 
-                }, error: function (data) {
+                }, error   : function (data) {
                     if (data.status === 422) {
                         $(this).showValidationError(data);
-                        $("#basic-addon2").append(
-                            $('<i>', { class: 'glyphicon glyphicon-remove' })
+                        $('#basic-addon2').append(
+                            $('<i>', {class: 'glyphicon glyphicon-remove'}),
                         )
-                    }
-                    else if (data.status === 404) {
-                        $("#basic-addon2").empty();
-                        $("#basic-addon2").append(
-                            $('<i>', { class: 'glyphicon glyphicon-remove' })
+                    } else if (data.status === 404) {
+                        $('#basic-addon2').empty();
+                        $('#basic-addon2').append(
+                            $('<i>', {class: 'glyphicon glyphicon-remove'}),
                         )
-                    }
-                    else {
+                    } else {
                         $(this).showServerError();
-                        $("#basic-addon2").empty();
-                        $("#basic-addon2").append(
-                            $('<i>', { class: 'glyphicon glyphicon-warning-sign' })
+                        $('#basic-addon2').empty();
+                        $('#basic-addon2').append(
+                            $('<i>', {class: 'glyphicon glyphicon-warning-sign'}),
                         )
                     }
-                }
+                },
             });
 
         }
 
 
-        $("#searchBarCode").on('submit', function (e) {
+        $('#searchBarCode').on('submit', function (e) {
             barcodeSearch(e);
         });
 
 
-
         $('body').on('click', '#jq-keyboard button', function (e) {
-            let pressed = $(this)[0].className.split(" ");
-            if ($("#skuCode").val() != "" && pressed[2] == "enter") {
+            let pressed = $(this)[0].className.split(' ');
+            if ($('#skuCode').val() != '' && pressed[2] == 'enter') {
                 barcodeSearch(e);
             }
         });
 
 
-
         $.fn.addProductToCart = function (data) {
             item = {
-                id: data._id,
+                id          : data._id,
                 product_name: data.name,
-                sku: data.sku,
-                price: data.price,
-                quantity: 1
+                sku         : data.sku,
+                price       : data.price,
+                quantity    : 1,
             };
 
             if ($(this).isExist(item)) {
@@ -435,30 +420,27 @@ if (auth == undefined) {
             $.each(cart, function (index, data) {
                 total += data.quantity * data.price;
             });
-            total = total - $("#inputDiscount").val();
+            total = total - $('#inputDiscount').val();
             $('#price').text(settings.symbol + total.toFixed(2));
 
             subTotal = total;
 
-            if ($("#inputDiscount").val() >= total) {
-                $("#inputDiscount").val(0);
+            if ($('#inputDiscount').val() >= total) {
+                $('#inputDiscount').val(0);
             }
 
             if (settings.charge_tax) {
-                totalVat = ((total * vat) / 100);
+                totalVat   = ((total * vat) / 100);
                 grossTotal = total + totalVat
-            }
-
-            else {
+            } else {
                 grossTotal = total;
             }
 
             orderTotal = grossTotal.toFixed(2);
 
-            $("#gross_price").text(settings.symbol + grossTotal.toFixed(2));
-            $("#payablePrice").val(grossTotal);
+            $('#gross_price').text(settings.symbol + grossTotal.toFixed(2));
+            $('#payablePrice').val(grossTotal);
         };
-
 
 
         $.fn.renderTable = function (cartList) {
@@ -467,44 +449,44 @@ if (auth == undefined) {
             $.each(cartList, function (index, data) {
                 $('#cartTable > tbody').append(
                     $('<tr>').append(
-                        $('<td>', { text: index + 1 }),
-                        $('<td>', { text: data.product_name }),
+                        $('<td>', {text: index + 1}),
+                        $('<td>', {text: data.product_name}),
                         $('<td>').append(
-                            $('<div>', { class: 'input-group' }).append(
-                                $('<div>', { class: 'input-group-btn btn-xs' }).append(
+                            $('<div>', {class: 'input-group'}).append(
+                                $('<div>', {class: 'input-group-btn btn-xs'}).append(
                                     $('<button>', {
-                                        class: 'btn btn-default btn-xs',
-                                        onclick: '$(this).qtDecrement(' + index + ')'
+                                        class  : 'btn btn-default btn-xs',
+                                        onclick: '$(this).qtDecrement(' + index + ')',
                                     }).append(
-                                        $('<i>', { class: 'fa fa-minus' })
-                                    )
+                                        $('<i>', {class: 'fa fa-minus'}),
+                                    ),
                                 ),
                                 $('<input>', {
-                                    class: 'form-control',
-                                    type: 'number',
-                                    value: data.quantity,
-                                    onInput: '$(this).qtInput(' + index + ')'
+                                    class  : 'form-control',
+                                    type   : 'number',
+                                    value  : data.quantity,
+                                    onInput: '$(this).qtInput(' + index + ')',
                                 }),
-                                $('<div>', { class: 'input-group-btn btn-xs' }).append(
+                                $('<div>', {class: 'input-group-btn btn-xs'}).append(
                                     $('<button>', {
-                                        class: 'btn btn-default btn-xs',
-                                        onclick: '$(this).qtIncrement(' + index + ')'
+                                        class  : 'btn btn-default btn-xs',
+                                        onclick: '$(this).qtIncrement(' + index + ')',
                                     }).append(
-                                        $('<i>', { class: 'fa fa-plus' })
-                                    )
-                                )
-                            )
+                                        $('<i>', {class: 'fa fa-plus'}),
+                                    ),
+                                ),
+                            ),
                         ),
-                        $('<td>', { text: settings.symbol + (data.price * data.quantity).toFixed(2) }),
+                        $('<td>', {text: settings.symbol + (data.price * data.quantity).toFixed(2)}),
                         $('<td>').append(
                             $('<button>', {
-                                class: 'btn btn-danger btn-xs',
-                                onclick: '$(this).deleteFromCart(' + index + ')'
+                                class  : 'btn btn-danger btn-xs',
+                                onclick: '$(this).deleteFromCart(' + index + ')',
                             }).append(
-                                $('<i>', { class: 'fa fa-times' })
-                            )
-                        )
-                    )
+                                $('<i>', {class: 'fa fa-times'}),
+                            ),
+                        ),
+                    ),
                 )
             })
         };
@@ -529,17 +511,14 @@ if (auth == undefined) {
                 if (item.quantity < product[0].quantity) {
                     item.quantity += 1;
                     $(this).renderTable(cart);
-                }
-
-                else {
+                } else {
                     Swal.fire(
                         'No more stock!',
                         'You have already added all the available stock.',
-                        'info'
+                        'info',
                     );
                 }
-            }
-            else {
+            } else {
                 item.quantity += 1;
                 $(this).renderTable(cart);
             }
@@ -557,7 +536,7 @@ if (auth == undefined) {
 
 
         $.fn.qtInput = function (i) {
-            item = cart[i];
+            item          = cart[i];
             item.quantity = $(this).val();
             $(this).renderTable(cart);
         }
@@ -567,13 +546,13 @@ if (auth == undefined) {
 
             if (cart.length > 0) {
                 Swal.fire({
-                    title: 'Are you sure?',
-                    text: "You are about to remove all items from the cart.",
-                    icon: 'warning',
-                    showCancelButton: true,
+                    title             : 'Are you sure?',
+                    text              : 'You are about to remove all items from the cart.',
+                    icon              : 'warning',
+                    showCancelButton  : true,
                     confirmButtonColor: '#3085d6',
-                    cancelButtonColor: '#d33',
-                    confirmButtonText: 'Yes, clear it!'
+                    cancelButtonColor : '#dd3333',
+                    confirmButtonText : 'Yes, clear it!',
                 }).then((result) => {
 
                     if (result.value) {
@@ -585,7 +564,7 @@ if (auth == undefined) {
                         Swal.fire(
                             'Cleared!',
                             'All items have been removed.',
-                            'success'
+                            'success',
                         )
                     }
                 });
@@ -594,78 +573,81 @@ if (auth == undefined) {
         }
 
 
-        $("#payButton").on('click', function () {
+        $('#payButton').on('click', function () {
             if (cart.length != 0) {
-                $("#paymentModel").modal('toggle');
+                $('#paymentModel').modal('toggle');
             } else {
                 Swal.fire(
                     'Oops!',
                     'There is nothing to pay!',
-                    'warning'
+                    'warning',
                 );
             }
 
         });
 
 
-        $("#hold").on('click', function () {
+        $('#hold').on('click', function () {
 
             if (cart.length != 0) {
 
-                $("#dueModal").modal('toggle');
+                $('#dueModal').modal('toggle');
             } else {
                 Swal.fire(
                     'Oops!',
                     'There is nothing to hold!',
-                    'warning'
+                    'warning',
                 );
             }
         });
 
 
         function printJobComplete() {
-            alert("print job complete");
+            alert('print job complete');
         }
 
 
         $.fn.submitDueOrder = function (status) {
 
-            let items = "";
+            let items   = '';
             let payment = 0;
 
             cart.forEach(item => {
 
-                items += "<tr><td>" + item.product_name + "</td><td>" + item.quantity + "</td><td>" + settings.symbol + parseFloat(item.price).toFixed(2) + "</td></tr>";
+                items += '<tr><td>' + item.product_name + '</td><td>' + item.quantity + '</td><td>' + settings.symbol + parseFloat(item.price).toFixed(2) + '</td></tr>';
 
             });
 
             let currentTime = new Date(moment());
 
-            let discount = $("#inputDiscount").val();
-            let customer = JSON.parse($("#customer").val());
-            let date = moment(currentTime).format("YYYY-MM-DD HH:mm:ss");
-            let paid = $("#payment").val() == "" ? "" : parseFloat($("#payment").val()).toFixed(2);
-            let change = $("#change").text() == "" ? "" : parseFloat($("#change").text()).toFixed(2);
-            let refNumber = $("#refNumber").val();
+            let discount    = $('#inputDiscount').val();
+            let customer    = JSON.parse($('#customer').val());
+            let date        = moment(currentTime).format('YYYY-MM-DD HH:mm:ss');
+            let paid        = $('#payment').val() == '' ? '' : parseFloat($('#payment').val()).toFixed(2);
+            let change      = $('#change').text() == '' ? '' : parseFloat($('#change').text()).toFixed(2);
+            let refNumber   = $('#refNumber').val();
             let orderNumber = holdOrder;
-            let type = "";
-            let tax_row = "";
+            let type        = '';
+            let tax_row     = '';
 
 
             switch (paymentType) {
 
-                case 1: type = "Cheque";
+                case 1:
+                    type = 'Cheque';
                     break;
 
-                case 2: type = "Card";
+                case 2:
+                    type = 'Card';
                     break;
 
-                default: type = "Cash";
+                default:
+                    type = 'Cash';
 
             }
 
 
-            if (paid != "") {
+            if (paid != '') {
                 payment = `<tr>
                         <td>Paid</td>
                         <td>:</td>
@@ -684,7 +666,6 @@ if (auth == undefined) {
             }
 
 
-
             if (settings.charge_tax) {
                 tax_row = `<tr>
                     <td>Vat(${settings.percentage})% </td>
@@ -694,14 +675,13 @@ if (auth == undefined) {
             }
 
 
-
             if (status == 0) {
 
-                if ($("#customer").val() == 0 && $("#refNumber").val() == "") {
+                if ($('#customer').val() == 0 && $('#refNumber').val() == '') {
                     Swal.fire(
                         'Reference Required!',
                         'You either need to select a customer <br> or enter a reference!',
-                        'warning'
+                        'warning',
                     )
 
                     return;
@@ -709,23 +689,22 @@ if (auth == undefined) {
             }
 
 
-            $(".loading").show();
+            $('.loading').show();
 
 
             if (holdOrder != 0) {
 
                 orderNumber = holdOrder;
-                method = 'PUT'
-            }
-            else {
+                method      = 'PUT'
+            } else {
                 orderNumber = Math.floor(Date.now() / 1000);
-                method = 'POST'
+                method      = 'POST'
             }
 
 
             receipt = `<div style="font-size: 10px;">                            
         <p style="text-align: center;">
-        ${settings.img == "" ? settings.img : '<img style="max-width: 50px;max-width: 100px;" src ="' + img_path + settings.img + '" /><br>'}
+        ${settings.img == '' ? settings.img : '<img style="max-width: 50px;max-width: 100px;" src ="' + img_path + settings.img + '" /><br>'}
             <span style="font-size: 22px;">${settings.store}</span> <br>
             ${settings.address_one} <br>
             ${settings.address_two} <br>
@@ -736,7 +715,7 @@ if (auth == undefined) {
         <left>
             <p>
             Order No : ${orderNumber} <br>
-            Ref No : ${refNumber == "" ? orderNumber : refNumber} <br>
+            Ref No : ${refNumber == '' ? orderNumber : refNumber} <br>
             Customer : ${customer == 0 ? 'Walk in customer' : customer.name} <br>
             Cashier : ${user.fullname} <br>
             Date : ${date}<br>
@@ -790,52 +769,51 @@ if (auth == undefined) {
             if (status == 3) {
                 if (cart.length > 0) {
 
-                    printJS({ printable: receipt, type: 'raw-html' });
+                    printJS({printable: receipt, type: 'raw-html'});
 
-                    $(".loading").hide();
+                    $('.loading').hide();
                     return;
 
-                }
-                else {
+                } else {
 
-                    $(".loading").hide();
+                    $('.loading').hide();
                     return;
                 }
             }
 
 
             let data = {
-                order: orderNumber,
-                ref_number: refNumber,
-                discount: discount,
-                customer: customer,
-                status: status,
-                subtotal: parseFloat(subTotal).toFixed(2),
-                tax: totalVat,
-                order_type: 1,
-                items: cart,
-                date: currentTime,
+                order       : orderNumber,
+                ref_number  : refNumber,
+                discount    : discount,
+                customer    : customer,
+                status      : status,
+                subtotal    : parseFloat(subTotal).toFixed(2),
+                tax         : totalVat,
+                order_type  : 1,
+                items       : cart,
+                date        : currentTime,
                 payment_type: type,
-                payment_info: $("#paymentInfo").val(),
-                total: orderTotal,
-                paid: paid,
-                change: change,
-                _id: orderNumber,
-                till: platform.till,
-                mac: platform.mac,
-                user: user.fullname,
-                user_id: user._id
+                payment_info: $('#paymentInfo').val(),
+                total       : orderTotal,
+                paid        : paid,
+                change      : change,
+                _id         : orderNumber,
+                till        : platform.till,
+                mac         : platform.mac,
+                user        : user.fullname,
+                user_id     : user._id,
             }
 
 
             $.ajax({
-                url: api + 'new',
-                type: method,
-                data: JSON.stringify(data),
+                url        : api + 'new',
+                type       : method,
+                data       : JSON.stringify(data),
                 contentType: 'application/json; charset=utf-8',
-                cache: false,
+                cache      : false,
                 processData: false,
-                success: function (data) {
+                success    : function (data) {
 
                     cart = [];
                     $('#viewTransaction').html('');
@@ -843,24 +821,24 @@ if (auth == undefined) {
                     $('#orderModal').modal('show');
                     loadProducts();
                     loadCustomers();
-                    $(".loading").hide();
-                    $("#dueModal").modal('hide');
-                    $("#paymentModel").modal('hide');
+                    $('.loading').hide();
+                    $('#dueModal').modal('hide');
+                    $('#paymentModel').modal('hide');
                     $(this).getHoldOrders();
                     $(this).getCustomerOrders();
                     $(this).renderTable(cart);
 
-                }, error: function (data) {
-                    $(".loading").hide();
-                    $("#dueModal").modal('toggle');
-                    swal("Something went wrong!", 'Please refresh this page and try again');
+                }, error   : function (data) {
+                    $('.loading').hide();
+                    $('#dueModal').modal('toggle');
+                    swal('Something went wrong!', 'Please refresh this page and try again');
 
-                }
+                },
             });
 
-            $("#refNumber").val('');
-            $("#change").text('');
-            $("#payment").val('');
+            $('#refNumber').val('');
+            $('#change').text('');
+            $('#payment').val('');
 
         }
 
@@ -887,32 +865,32 @@ if (auth == undefined) {
             $.each(data, function (index, order) {
                 $(this).calculatePrice(order);
                 renderLocation.append(
-                    $('<div>', { class: orderType == 1 ? 'col-md-3 order' : 'col-md-3 customer-order' }).append(
+                    $('<div>', {class: orderType == 1 ? 'col-md-3 order' : 'col-md-3 customer-order'}).append(
                         $('<a>').append(
-                            $('<div>', { class: 'card-box order-box' }).append(
+                            $('<div>', {class: 'card-box order-box'}).append(
                                 $('<p>').append(
-                                    $('<b>', { text: 'Ref :' }),
-                                    $('<span>', { text: order.ref_number, class: 'ref_number' }),
+                                    $('<b>', {text: 'Ref :'}),
+                                    $('<span>', {text: order.ref_number, class: 'ref_number'}),
                                     $('<br>'),
-                                    $('<b>', { text: 'Price :' }),
-                                    $('<span>', { text: order.total, class: "label label-info", style: 'font-size:14px;' }),
+                                    $('<b>', {text: 'Price :'}),
+                                    $('<span>', {text: order.total, class: 'label label-info', style: 'font-size:14px;'}),
                                     $('<br>'),
-                                    $('<b>', { text: 'Items :' }),
-                                    $('<span>', { text: order.items.length }),
+                                    $('<b>', {text: 'Items :'}),
+                                    $('<span>', {text: order.items.length}),
                                     $('<br>'),
-                                    $('<b>', { text: 'Customer :' }),
-                                    $('<span>', { text: order.customer != 0 ? order.customer.name : 'Walk in customer', class: 'customer_name' })
+                                    $('<b>', {text: 'Customer :'}),
+                                    $('<span>', {text: order.customer != 0 ? order.customer.name : 'Walk in customer', class: 'customer_name'}),
                                 ),
-                                $('<button>', { class: 'btn btn-danger del', onclick: '$(this).deleteOrder(' + index + ',' + orderType + ')' }).append(
-                                    $('<i>', { class: 'fa fa-trash' })
+                                $('<button>', {class: 'btn btn-danger del', onclick: '$(this).deleteOrder(' + index + ',' + orderType + ')'}).append(
+                                    $('<i>', {class: 'fa fa-trash'}),
                                 ),
 
-                                $('<button>', { class: 'btn btn-default', onclick: '$(this).orderDetails(' + index + ',' + orderType + ')' }).append(
-                                    $('<span>', { class: 'fa fa-shopping-basket' })
-                                )
-                            )
-                        )
-                    )
+                                $('<button>', {class: 'btn btn-default', onclick: '$(this).orderDetails(' + index + ',' + orderType + ')'}).append(
+                                    $('<span>', {class: 'fa fa-shopping-basket'}),
+                                ),
+                            ),
+                        ),
+                    ),
                 )
             })
         }
@@ -924,7 +902,7 @@ if (auth == undefined) {
                 totalPrice += product.price * product.quantity;
             })
 
-            let vat = (totalPrice * data.vat) / 100;
+            let vat    = (totalPrice * data.vat) / 100;
             totalPrice = ((totalPrice + vat) - data.discount).toFixed(0);
 
             return totalPrice;
@@ -939,21 +917,21 @@ if (auth == undefined) {
 
                 $('#refNumber').val(holdOrderList[index].ref_number);
 
-                $("#customer option:selected").removeAttr('selected');
+                $('#customer option:selected').removeAttr('selected');
 
-                $("#customer option").filter(function () {
-                    return $(this).text() == "Walk in customer";
-                }).prop("selected", true);
+                $('#customer option').filter(function () {
+                    return $(this).text() == 'Walk in customer';
+                }).prop('selected', true);
 
                 holdOrder = holdOrderList[index]._id;
-                cart = [];
+                cart      = [];
                 $.each(holdOrderList[index].items, function (index, product) {
                     item = {
-                        id: product.id,
+                        id          : product.id,
                         product_name: product.product_name,
-                        sku: product.sku,
-                        price: product.price,
-                        quantity: product.quantity
+                        sku         : product.sku,
+                        price       : product.price,
+                        quantity    : product.quantity,
                     };
                     cart.push(item);
                 })
@@ -961,38 +939,40 @@ if (auth == undefined) {
 
                 $('#refNumber').val('');
 
-                $("#customer option:selected").removeAttr('selected');
+                $('#customer option:selected').removeAttr('selected');
 
-                $("#customer option").filter(function () {
+                $('#customer option').filter(function () {
                     return $(this).text() == customerOrderList[index].customer.name;
-                }).prop("selected", true);
+                }).prop('selected', true);
 
 
                 holdOrder = customerOrderList[index]._id;
-                cart = [];
+                cart      = [];
                 $.each(customerOrderList[index].items, function (index, product) {
                     item = {
-                        id: product.id,
+                        id          : product.id,
                         product_name: product.product_name,
-                        sku: product.sku,
-                        price: product.price,
-                        quantity: product.quantity
+                        sku         : product.sku,
+                        price       : product.price,
+                        quantity    : product.quantity,
                     };
                     cart.push(item);
                 })
             }
             $(this).renderTable(cart);
-            $("#holdOrdersModal").modal('hide');
-            $("#customerModal").modal('hide');
+            $('#holdOrdersModal').modal('hide');
+            $('#customerModal').modal('hide');
         }
 
 
         $.fn.deleteOrder = function (index, type) {
 
             switch (type) {
-                case 1: deleteId = holdOrderList[index]._id;
+                case 1:
+                    deleteId = holdOrderList[index]._id;
                     break;
-                case 2: deleteId = customerOrderList[index]._id;
+                case 2:
+                    deleteId = customerOrderList[index]._id;
             }
 
             let data = {
@@ -1000,24 +980,24 @@ if (auth == undefined) {
             }
 
             Swal.fire({
-                title: "Delete order?",
-                text: "This will delete the order. Are you sure you want to delete!",
-                icon: 'warning',
-                showCancelButton: true,
+                title             : 'Delete order?',
+                text              : 'This will delete the order. Are you sure you want to delete!',
+                icon              : 'warning',
+                showCancelButton  : true,
                 confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'Yes, delete it!'
+                cancelButtonColor : '#dd3333',
+                confirmButtonText : 'Yes, delete it!',
             }).then((result) => {
 
                 if (result.value) {
 
                     $.ajax({
-                        url: api + 'delete',
-                        type: 'POST',
-                        data: JSON.stringify(data),
+                        url        : api + 'delete',
+                        type       : 'POST',
+                        data       : JSON.stringify(data),
                         contentType: 'application/json; charset=utf-8',
-                        cache: false,
-                        success: function (data) {
+                        cache      : false,
+                        success    : function (data) {
 
                             $(this).getHoldOrders();
                             $(this).getCustomerOrders();
@@ -1025,18 +1005,17 @@ if (auth == undefined) {
                             Swal.fire(
                                 'Deleted!',
                                 'You have deleted the order!',
-                                'success'
+                                'success',
                             )
 
-                        }, error: function (data) {
-                            $(".loading").hide();
+                        }, error   : function (data) {
+                            $('.loading').hide();
 
-                        }
+                        },
                     });
                 }
             });
         }
-
 
 
         $.fn.getCustomerOrders = function () {
@@ -1049,62 +1028,60 @@ if (auth == undefined) {
         }
 
 
-
         $('#saveCustomer').on('submit', function (e) {
 
             e.preventDefault();
 
             let custData = {
-                _id: Math.floor(Date.now() / 1000),
-                name: $('#userName').val(),
-                phone: $('#phoneNumber').val(),
-                email: $('#emailAddress').val(),
-                address: $('#userAddress').val()
+                _id    : Math.floor(Date.now() / 1000),
+                name   : $('#userName').val(),
+                phone  : $('#phoneNumber').val(),
+                email  : $('#emailAddress').val(),
+                address: $('#userAddress').val(),
             }
 
             $.ajax({
-                url: api + 'customers/customer',
-                type: 'POST',
-                data: JSON.stringify(custData),
+                url        : api + 'customers/customer',
+                type       : 'POST',
+                data       : JSON.stringify(custData),
                 contentType: 'application/json; charset=utf-8',
-                cache: false,
+                cache      : false,
                 processData: false,
-                success: function (data) {
-                    $("#newCustomer").modal('hide');
-                    Swal.fire("Customer added!", "Customer added successfully!", "success");
-                    $("#customer option:selected").removeAttr('selected');
+                success    : function (data) {
+                    $('#newCustomer').modal('hide');
+                    Swal.fire('Customer added!', 'Customer added successfully!', 'success');
+                    $('#customer option:selected').removeAttr('selected');
                     $('#customer').append(
-                        $('<option>', { text: custData.name, value: `{"id": ${custData._id}, "name": ${custData.name}}`, selected: 'selected' })
+                        $('<option>', {text: custData.name, value: `{"id": ${custData._id}, "name": ${custData.name}}`, selected: 'selected'}),
                     );
 
                     $('#customer').val(`{"id": ${custData._id}, "name": ${custData.name}}`).trigger('chosen:updated');
 
-                }, error: function (data) {
-                    $("#newCustomer").modal('hide');
+                }, error   : function (data) {
+                    $('#newCustomer').modal('hide');
                     Swal.fire('Error', 'Something went wrong please try again', 'error')
-                }
+                },
             })
         })
 
 
-        $("#confirmPayment").hide();
+        $('#confirmPayment').hide();
 
-        $("#cardInfo").hide();
+        $('#cardInfo').hide();
 
-        $("#payment").on('input', function () {
+        $('#payment').on('input', function () {
             $(this).calculateChange();
         });
 
 
-        $("#confirmPayment").on('click', function () {
-            if ($('#payment').val() == "") {
+        $('#confirmPayment').on('click', function () {
+            if ($('#payment').val() == '') {
                 Swal.fire(
                     'Nope!',
                     'Please enter the amount that was paid!',
-                    'warning'
+                    'warning',
                 );
-            }
-            else {
+            } else {
                 $(this).submitDueOrder(1);
             }
         });
@@ -1130,16 +1107,16 @@ if (auth == undefined) {
         });
 
 
-        $("#viewRefOrders").click(function () {
+        $('#viewRefOrders').click(function () {
             setTimeout(function () {
-                $("#holdOrderInput").focus();
+                $('#holdOrderInput').focus();
             }, 500);
         });
 
 
-        $("#viewCustomerOrders").click(function () {
+        $('#viewCustomerOrders').click(function () {
             setTimeout(function () {
-                $("#holdCustomerOrderInput").focus();
+                $('#holdCustomerOrderInput').focus();
             }, 500);
         });
 
@@ -1158,72 +1135,70 @@ if (auth == undefined) {
 
             $(this).ajaxSubmit({
                 contentType: 'application/json',
-                success: function (response) {
+                success    : function (response) {
 
                     $('#saveProduct').get(0).reset();
                     $('#current_img').text('');
 
                     loadProducts();
                     Swal.fire({
-                        title: 'Product Saved',
-                        text: "Select an option below to continue.",
-                        icon: 'success',
-                        showCancelButton: true,
+                        title             : 'Product Saved',
+                        text              : 'Select an option below to continue.',
+                        icon              : 'success',
+                        showCancelButton  : true,
                         confirmButtonColor: '#3085d6',
-                        cancelButtonColor: '#d33',
-                        confirmButtonText: 'Add another',
-                        cancelButtonText: 'Close'
+                        cancelButtonColor : '#dd3333',
+                        confirmButtonText : 'Add another',
+                        cancelButtonText  : 'Close',
                     }).then((result) => {
 
                         if (!result.value) {
-                            $("#newProduct").modal('hide');
+                            $('#newProduct').modal('hide');
                         }
                     });
-                }, error: function (data) {
+                }, error   : function (data) {
                     console.log(data);
-                }
+                },
             });
 
         });
 
 
-
         $('#saveCategory').submit(function (e) {
             e.preventDefault();
 
-            if ($('#category_id').val() == "") {
+            if ($('#category_id').val() == '') {
                 method = 'POST';
-            }
-            else {
+            } else {
                 method = 'PUT';
             }
 
             $.ajax({
-                type: method,
-                url: api + 'categories/category',
-                data: $(this).serialize(),
-                success: function (data, textStatus, jqXHR) {
+                type    : method,
+                url     : api + 'categories/category',
+                data    : $(this).serialize(),
+                success : function (data, textStatus, jqXHR) {
                     $('#saveCategory').get(0).reset();
                     loadCategories();
                     loadProducts();
                     Swal.fire({
-                        title: 'Category Saved',
-                        text: "Select an option below to continue.",
-                        icon: 'success',
-                        showCancelButton: true,
+                        title             : 'Category Saved',
+                        text              : 'Select an option below to continue.',
+                        icon              : 'success',
+                        showCancelButton  : true,
                         confirmButtonColor: '#3085d6',
-                        cancelButtonColor: '#d33',
-                        confirmButtonText: 'Add another',
-                        cancelButtonText: 'Close'
+                        cancelButtonColor : '#dd3333',
+                        confirmButtonText : 'Add another',
+                        cancelButtonText  : 'Close',
                     }).then((result) => {
 
                         if (!result.value) {
-                            $("#newCategory").modal('hide');
+                            $('#newCategory').modal('hide');
                         }
                     });
                 }, error: function (data) {
                     console.log(data);
-                }
+                },
 
             });
 
@@ -1235,9 +1210,9 @@ if (auth == undefined) {
 
             $('#Products').modal('hide');
 
-            $("#category option").filter(function () {
+            $('#category option').filter(function () {
                 return $(this).val() == allProducts[index].category;
-            }).prop("selected", true);
+            }).prop('selected', true);
 
             $('#productName').val(allProducts[index].name);
             $('#product_price').val(allProducts[index].price);
@@ -1246,7 +1221,7 @@ if (auth == undefined) {
             $('#product_id').val(allProducts[index]._id);
             $('#img').val(allProducts[index].img);
 
-            if (allProducts[index].img != "") {
+            if (allProducts[index].img != '') {
 
                 $('#imagename').hide();
                 $('#current_img').html(`<img src="${img_path + allProducts[index].img}" alt="">`);
@@ -1254,14 +1229,14 @@ if (auth == undefined) {
             }
 
             if (allProducts[index].stock == 0) {
-                $('#stock').prop("checked", true);
+                $('#stock').prop('checked', true);
             }
 
             $('#newProduct').modal('show');
         }
 
 
-        $("#userModal").on("hide.bs.modal", function () {
+        $('#userModal').on('hide.bs.modal', function () {
             $('.perms').hide();
         });
 
@@ -1274,44 +1249,39 @@ if (auth == undefined) {
 
             $('.perms').show();
 
-            $("#user_id").val(allUsers[index]._id);
+            $('#user_id').val(allUsers[index]._id);
             $('#fullname').val(allUsers[index].fullname);
             $('#username').val(allUsers[index].username);
             $('#password').val(atob(allUsers[index].password));
 
             if (allUsers[index].perm_products == 1) {
-                $('#perm_products').prop("checked", true);
-            }
-            else {
-                $('#perm_products').prop("checked", false);
+                $('#perm_products').prop('checked', true);
+            } else {
+                $('#perm_products').prop('checked', false);
             }
 
             if (allUsers[index].perm_categories == 1) {
-                $('#perm_categories').prop("checked", true);
-            }
-            else {
-                $('#perm_categories').prop("checked", false);
+                $('#perm_categories').prop('checked', true);
+            } else {
+                $('#perm_categories').prop('checked', false);
             }
 
             if (allUsers[index].perm_transactions == 1) {
-                $('#perm_transactions').prop("checked", true);
-            }
-            else {
-                $('#perm_transactions').prop("checked", false);
+                $('#perm_transactions').prop('checked', true);
+            } else {
+                $('#perm_transactions').prop('checked', false);
             }
 
             if (allUsers[index].perm_users == 1) {
-                $('#perm_users').prop("checked", true);
-            }
-            else {
-                $('#perm_users').prop("checked", false);
+                $('#perm_users').prop('checked', true);
+            } else {
+                $('#perm_users').prop('checked', false);
             }
 
             if (allUsers[index].perm_settings == 1) {
-                $('#perm_settings').prop("checked", true);
-            }
-            else {
-                $('#perm_settings').prop("checked", false);
+                $('#perm_settings').prop('checked', true);
+            } else {
+                $('#perm_settings').prop('checked', false);
             }
 
             $('#userModal').modal('show');
@@ -1328,29 +1298,29 @@ if (auth == undefined) {
 
         $.fn.deleteProduct = function (id) {
             Swal.fire({
-                title: 'Are you sure?',
-                text: "You are about to delete this product.",
-                icon: 'warning',
-                showCancelButton: true,
+                title             : 'Are you sure?',
+                text              : 'You are about to delete this product.',
+                icon              : 'warning',
+                showCancelButton  : true,
                 confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'Yes, delete it!'
+                cancelButtonColor : '#dd3333',
+                confirmButtonText : 'Yes, delete it!',
             }).then((result) => {
 
                 if (result.value) {
 
                     $.ajax({
-                        url: api + 'inventory/product/' + id,
-                        type: 'DELETE',
+                        url    : api + 'inventory/product/' + id,
+                        type   : 'DELETE',
                         success: function (result) {
                             loadProducts();
                             Swal.fire(
                                 'Done!',
                                 'Product deleted',
-                                'success'
+                                'success',
                             );
 
-                        }
+                        },
                     });
                 }
             });
@@ -1359,29 +1329,29 @@ if (auth == undefined) {
 
         $.fn.deleteUser = function (id) {
             Swal.fire({
-                title: 'Are you sure?',
-                text: "You are about to delete this user.",
-                icon: 'warning',
-                showCancelButton: true,
+                title             : 'Are you sure?',
+                text              : 'You are about to delete this user.',
+                icon              : 'warning',
+                showCancelButton  : true,
                 confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'Yes, delete!'
+                cancelButtonColor : '#dd3333',
+                confirmButtonText : 'Yes, delete!',
             }).then((result) => {
 
                 if (result.value) {
 
                     $.ajax({
-                        url: api + 'users/user/' + id,
-                        type: 'DELETE',
+                        url    : api + 'users/user/' + id,
+                        type   : 'DELETE',
                         success: function (result) {
                             loadUserList();
                             Swal.fire(
                                 'Done!',
                                 'User deleted',
-                                'success'
+                                'success',
                             );
 
-                        }
+                        },
                     });
                 }
             });
@@ -1390,29 +1360,29 @@ if (auth == undefined) {
 
         $.fn.deleteCategory = function (id) {
             Swal.fire({
-                title: 'Are you sure?',
-                text: "You are about to delete this category.",
-                icon: 'warning',
-                showCancelButton: true,
+                title             : 'Are you sure?',
+                text              : 'You are about to delete this category.',
+                icon              : 'warning',
+                showCancelButton  : true,
                 confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'Yes, delete it!'
+                cancelButtonColor : '#dd3333',
+                confirmButtonText : 'Yes, delete it!',
             }).then((result) => {
 
                 if (result.value) {
 
                     $.ajax({
-                        url: api + 'categories/category/' + id,
-                        type: 'DELETE',
+                        url    : api + 'categories/category/' + id,
+                        type   : 'DELETE',
                         success: function (result) {
                             loadCategories();
                             Swal.fire(
                                 'Done!',
                                 'Category deleted',
-                                'success'
+                                'success',
                             );
 
-                        }
+                        },
                     });
                 }
             });
@@ -1436,7 +1406,7 @@ if (auth == undefined) {
 
         function loadUserList() {
 
-            let counter = 0;
+            let counter   = 0;
             let user_list = '';
             $('#user_list').empty();
             $('#userList').DataTable().destroy();
@@ -1444,21 +1414,22 @@ if (auth == undefined) {
             $.get(api + 'users/all', function (users) {
 
 
-
                 allUsers = [...users];
 
                 users.forEach((user, index) => {
 
-                    state = [];
+                    state          = [];
                     let class_name = '';
 
-                    if (user.status != "") {
-                        state = user.status.split("_");
+                    if (user.status != '') {
+                        state = user.status.split('_');
 
                         switch (state[0]) {
-                            case 'Logged In': class_name = 'btn-default';
+                            case 'Logged In':
+                                class_name = 'btn-default';
                                 break;
-                            case 'Logged Out': class_name = 'btn-light';
+                            case 'Logged Out':
+                                class_name = 'btn-light';
                                 break;
                         }
                     }
@@ -1475,12 +1446,12 @@ if (auth == undefined) {
                         $('#user_list').html(user_list);
 
                         $('#userList').DataTable({
-                            "order": [[1, "desc"]]
-                            , "autoWidth": false
-                            , "info": true
-                            , "JQueryUI": true
-                            , "ordering": true
-                            , "paging": false
+                            'order'      : [[1, 'desc']]
+                            , 'autoWidth': false
+                            , 'info'     : true
+                            , 'JQueryUI' : true
+                            , 'ordering' : true
+                            , 'paging'   : false,
                         });
                     }
 
@@ -1491,9 +1462,9 @@ if (auth == undefined) {
 
 
         function loadProductList() {
-            let products = [...allProducts];
+            let products     = [...allProducts];
             let product_list = '';
-            let counter = 0;
+            let counter      = 0;
             $('#product_list').empty();
             $('#productList').DataTable().destroy();
 
@@ -1507,8 +1478,8 @@ if (auth == undefined) {
 
 
                 product_list += `<tr>
-            <td><img id="`+ product._id + `"></td>
-            <td><img style="max-height: 50px; max-width: 50px; border: 1px solid #ddd;" src="${product.img == "" ? "./assets/images/default.jpg" : img_path + product.img}" id="product_img"></td>
+            <td><img id="` + product._id + `"></td>
+            <td><img style="max-height: 50px; max-width: 50px; border: 1px solid #ddd;" src="${product.img == '' ? './assets/images/default.jpg' : img_path + product.img}" id="product_img"></td>
             <td>${product.name}</td>
             <td>${settings.symbol}${product.price}</td>
             <td>${product.stock == 1 ? product.quantity : 'N/A'}</td>
@@ -1520,20 +1491,20 @@ if (auth == undefined) {
                     $('#product_list').html(product_list);
 
                     products.forEach(pro => {
-                        $("#" + pro._id + "").JsBarcode(pro._id, {
-                            width: 2,
-                            height: 25,
-                            fontSize: 14
+                        $('#' + pro._id + '').JsBarcode(pro._id, {
+                            width   : 2,
+                            height  : 25,
+                            fontSize: 14,
                         });
                     });
 
                     $('#productList').DataTable({
-                        "order": [[1, "desc"]]
-                        , "autoWidth": false
-                        , "info": true
-                        , "JQueryUI": true
-                        , "ordering": true
-                        , "paging": false
+                        'order'      : [[1, 'desc']]
+                        , 'autoWidth': false
+                        , 'info'     : true
+                        , 'JQueryUI' : true
+                        , 'ordering' : true
+                        , 'paging'   : false,
                     });
                 }
 
@@ -1544,7 +1515,7 @@ if (auth == undefined) {
         function loadCategoryList() {
 
             let category_list = '';
-            let counter = 0;
+            let counter       = 0;
             $('#category_list').empty();
             $('#categoryList').DataTable().destroy();
 
@@ -1562,11 +1533,11 @@ if (auth == undefined) {
 
                 $('#category_list').html(category_list);
                 $('#categoryList').DataTable({
-                    "autoWidth": false
-                    , "info": true
-                    , "JQueryUI": true
-                    , "ordering": true
-                    , "paging": false
+                    'autoWidth' : false
+                    , 'info'    : true
+                    , 'JQueryUI': true
+                    , 'ordering': true
+                    , 'paging'  : false,
 
                 });
             }
@@ -1590,17 +1561,16 @@ if (auth == undefined) {
         };
 
 
-
         $('#log-out').click(function () {
 
             Swal.fire({
-                title: 'Are you sure?',
-                text: "You are about to log out.",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#d33',
-                cancelButtonColor: '#3085d6',
-                confirmButtonText: 'Logout'
+                title             : 'Are you sure?',
+                text              : 'You are about to log out.',
+                icon              : 'warning',
+                showCancelButton  : true,
+                confirmButtonColor: '#dd3333',
+                cancelButtonColor : '#3085d6',
+                confirmButtonText : 'Logout',
             }).then((result) => {
 
                 if (result.value) {
@@ -1614,7 +1584,6 @@ if (auth == undefined) {
         });
 
 
-
         $('#settings_form').on('submit', function (e) {
             e.preventDefault();
             let formData = $(this).serializeObject();
@@ -1626,20 +1595,19 @@ if (auth == undefined) {
                 mac_address = mac;
             });
 
-            formData['app'] = $('#app').find('option:selected').text();
-            formData['mac'] = mac_address;
+            formData['app']  = $('#app').find('option:selected').text();
+            formData['mac']  = mac_address;
             formData['till'] = 1;
 
             $('#settings_form').append('<input type="hidden" name="app" value="' + formData.app + '" />');
 
-            if (formData.percentage != "" && !$.isNumeric(formData.percentage)) {
+            if (formData.percentage != '' && !$.isNumeric(formData.percentage)) {
                 Swal.fire(
                     'Oops!',
                     'Please make sure the tax value is a number',
-                    'warning'
+                    'warning',
                 );
-            }
-            else {
+            } else {
                 storage.set('settings', formData);
 
                 $(this).attr('action', api + 'settings/post');
@@ -1648,20 +1616,19 @@ if (auth == undefined) {
 
                 $(this).ajaxSubmit({
                     contentType: 'application/json',
-                    success: function (response) {
+                    success    : function (response) {
 
                         ipcRenderer.send('app-reload', '');
 
-                    }, error: function (data) {
+                    }, error   : function (data) {
                         console.log(data);
-                    }
+                    },
 
                 });
 
             }
 
         });
-
 
 
         $('#net_settings_form').on('submit', function (e) {
@@ -1672,27 +1639,24 @@ if (auth == undefined) {
                 Swal.fire(
                     'Oops!',
                     'Please enter a number greater than 1.',
-                    'warning'
+                    'warning',
                 );
-            }
-            else {
+            } else {
                 if (isNumeric(formData.till)) {
                     formData['app'] = $('#app').find('option:selected').text();
                     storage.set('settings', formData);
                     ipcRenderer.send('app-reload', '');
-                }
-                else {
+                } else {
                     Swal.fire(
                         'Oops!',
                         'Till number must be a number!',
-                        'warning'
+                        'warning',
                     );
                 }
 
             }
 
         });
-
 
 
         $('#saveUser').on('submit', function (e) {
@@ -1707,40 +1671,36 @@ if (auth == undefined) {
                         Swal.fire(
                             'Oops!',
                             'Passwords do not match!',
-                            'warning'
+                            'warning',
                         );
                     }
                 }
-            }
-            else {
+            } else {
                 if (formData.password != atob(allUsers[user_index].password)) {
                     if (formData.password != formData.pass) {
                         Swal.fire(
                             'Oops!',
                             'Passwords do not match!',
-                            'warning'
+                            'warning',
                         );
                     }
                 }
             }
 
 
-
             if (formData.password == atob(user.password) || formData.password == atob(allUsers[user_index].password) || formData.password == formData.pass) {
                 $.ajax({
-                    url: api + 'users/post',
-                    type: 'POST',
-                    data: JSON.stringify(formData),
+                    url        : api + 'users/post',
+                    type       : 'POST',
+                    data       : JSON.stringify(formData),
                     contentType: 'application/json; charset=utf-8',
-                    cache: false,
+                    cache      : false,
                     processData: false,
-                    success: function (data) {
+                    success    : function (data) {
 
                         if (ownUserEdit) {
                             ipcRenderer.send('app-reload', '');
-                        }
-
-                        else {
+                        } else {
                             $('#userModal').modal('hide');
 
                             loadUserList();
@@ -1749,21 +1709,20 @@ if (auth == undefined) {
                             Swal.fire(
                                 'Ok!',
                                 'User details saved!',
-                                'success'
+                                'success',
                             );
                         }
 
 
-                    }, error: function (data) {
+                    }, error   : function (data) {
                         console.log(data);
-                    }
+                    },
 
                 });
 
             }
 
         });
-
 
 
         $('#app').change(function () {
@@ -1771,16 +1730,14 @@ if (auth == undefined) {
                 $('#net_settings_form').show(500);
                 $('#settings_form').hide(500);
                 macaddress.one(function (err, mac) {
-                    $("#mac").val(mac);
+                    $('#mac').val(mac);
                 });
-            }
-            else {
+            } else {
                 $('#net_settings_form').hide(500);
                 $('#settings_form').show(500);
             }
 
         });
-
 
 
         $('#cashier').click(function () {
@@ -1789,13 +1746,12 @@ if (auth == undefined) {
 
             $('#userModal').modal('show');
 
-            $("#user_id").val(user._id);
-            $("#fullname").val(user.fullname);
-            $("#username").val(user.username);
-            $("#password").val(atob(user.password));
+            $('#user_id').val(user._id);
+            $('#fullname').val(user.fullname);
+            $('#username').val(user.username);
+            $('#password').val(atob(user.password));
 
         });
-
 
 
         $('#add-user').click(function () {
@@ -1804,11 +1760,10 @@ if (auth == undefined) {
                 $('.perms').show();
             }
 
-            $("#saveUser").get(0).reset();
+            $('#saveUser').get(0).reset();
             $('#userModal').modal('show');
 
         });
-
 
 
         $('#settings').click(function () {
@@ -1817,46 +1772,43 @@ if (auth == undefined) {
                 $('#net_settings_form').show(500);
                 $('#settings_form').hide(500);
 
-                $("#ip").val(platform.ip);
-                $("#till").val(platform.till);
+                $('#ip').val(platform.ip);
+                $('#till').val(platform.till);
 
                 macaddress.one(function (err, mac) {
-                    $("#mac").val(mac);
+                    $('#mac').val(mac);
                 });
 
-                $("#app option").filter(function () {
+                $('#app option').filter(function () {
                     return $(this).text() == platform.app;
-                }).prop("selected", true);
-            }
-            else {
+                }).prop('selected', true);
+            } else {
                 $('#net_settings_form').hide(500);
                 $('#settings_form').show(500);
 
-                $("#settings_id").val("1");
-                $("#store").val(settings.store);
-                $("#address_one").val(settings.address_one);
-                $("#address_two").val(settings.address_two);
-                $("#contact").val(settings.contact);
-                $("#tax").val(settings.tax);
-                $("#symbol").val(settings.symbol);
-                $("#percentage").val(settings.percentage);
-                $("#footer").val(settings.footer);
-                $("#logo_img").val(settings.img);
+                $('#settings_id').val('1');
+                $('#store').val(settings.store);
+                $('#address_one').val(settings.address_one);
+                $('#address_two').val(settings.address_two);
+                $('#contact').val(settings.contact);
+                $('#tax').val(settings.tax);
+                $('#symbol').val(settings.symbol);
+                $('#percentage').val(settings.percentage);
+                $('#footer').val(settings.footer);
+                $('#logo_img').val(settings.img);
                 if (settings.charge_tax == 'on') {
-                    $('#charge_tax').prop("checked", true);
+                    $('#charge_tax').prop('checked', true);
                 }
-                if (settings.img != "") {
+                if (settings.img != '') {
                     $('#logoname').hide();
                     $('#current_logo').html(`<img src="${img_path + settings.img}" alt="">`);
                     $('#rmv_logo').show();
                 }
 
-                $("#app option").filter(function () {
+                $('#app option').filter(function () {
                     return $(this).text() == settings.app;
-                }).prop("selected", true);
+                }).prop('selected', true);
             }
-
-
 
 
         });
@@ -1866,7 +1818,7 @@ if (auth == undefined) {
 
 
     $('#rmv_logo').click(function () {
-        $('#remove_logo').val("1");
+        $('#remove_logo').val('1');
         $('#current_logo').hide(500);
         $(this).hide(500);
         $('#logoname').show(500);
@@ -1874,16 +1826,15 @@ if (auth == undefined) {
 
 
     $('#rmv_img').click(function () {
-        $('#remove_img').val("1");
+        $('#remove_img').val('1');
         $('#current_img').hide(500);
         $(this).hide(500);
         $('#imagename').show(500);
     });
 
 
-    $('#print_list').click(function () {
-
-        $("#loading").show();
+    $('#print_list').click(() => {
+        $('#loading').show();
 
         $('#productList').DataTable().destroy();
 
@@ -1891,26 +1842,26 @@ if (auth == undefined) {
 
         html2canvas($('#all_products').get(0)).then(canvas => {
             let height = canvas.height * (25.4 / 96);
-            let width = canvas.width * (25.4 / 96);
-            let pdf = new jsPDF('p', 'mm', 'a4');
+            let width  = canvas.width * (25.4 / 96);
+            let pdf    = new jsPDF('p', 'mm', 'a4');
+
             pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, width, height);
 
-            $("#loading").hide();
+            $('#loading').hide();
             pdf.save(filename);
         });
 
 
-
         $('#productList').DataTable({
-            "order": [[1, "desc"]]
-            , "autoWidth": false
-            , "info": true
-            , "JQueryUI": true
-            , "ordering": true
-            , "paging": false
+            'order'    : [[1, 'desc']],
+            'autoWidth': false,
+            'info'     : true,
+            'JQueryUI' : true,
+            'ordering' : true,
+            'paging'   : false,
         });
 
-        $(".loading").hide();
+        $('.loading').hide();
 
     });
 
@@ -1919,25 +1870,25 @@ if (auth == undefined) {
 
 $.fn.print = function () {
 
-    printJS({ printable: receipt, type: 'raw-html' });
+    printJS({printable: receipt, type: 'raw-html'});
 
 }
 
 
 function loadTransactions() {
 
-    let tills = [];
-    let users = [];
-    let sales = 0;
+    let tills    = [];
+    let users    = [];
+    let sales    = 0;
     let transact = 0;
-    let unique = 0;
+    let unique   = 0;
 
     sold_items = [];
-    sold = [];
+    sold       = [];
 
-    let counter = 0;
+    let counter          = 0;
     let transaction_list = '';
-    let query = `by-date?start=${start_date}&end=${end_date}&user=${by_user}&status=${by_status}&till=${by_till}`;
+    let query            = `by-date?start=${start_date}&end=${end_date}&user=${by_user}&status=${by_status}&till=${by_till}`;
 
 
     $.get(api + query, function (transactions) {
@@ -1954,7 +1905,6 @@ function loadTransactions() {
 
                 sales += parseFloat(trans.total);
                 transact++;
-
 
 
                 trans.items.forEach(item => {
@@ -1975,12 +1925,12 @@ function loadTransactions() {
                                 <td>${trans.order}</td>
                                 <td class="nobr">${moment(trans.date).format('YYYY MMM DD hh:mm:ss')}</td>
                                 <td>${settings.symbol + trans.total}</td>
-                                <td>${trans.paid == "" ? "" : settings.symbol + trans.paid}</td>
+                                <td>${trans.paid == '' ? '' : settings.symbol + trans.paid}</td>
                                 <td>${trans.change ? settings.symbol + Math.abs(trans.change).toFixed(2) : ''}</td>
-                                <td>${trans.paid == "" ? "" : trans.payment_type == 0 ? "Cash" : 'Card'}</td>
+                                <td>${trans.paid == '' ? '' : trans.payment_type == 0 ? 'Cash' : 'Card'}</td>
                                 <td>${trans.till}</td>
                                 <td>${trans.user}</td>
-                                <td>${trans.paid == "" ? '<button class="btn btn-dark"><i class="fa fa-search-plus"></i></button>' : '<button onClick="$(this).viewTransaction(' + index + ')" class="btn btn-info"><i class="fa fa-search-plus"></i></button></td>'}</tr>
+                                <td>${trans.paid == '' ? '<button class="btn btn-dark"><i class="fa fa-search-plus"></i></button>' : '<button onClick="$(this).viewTransaction(' + index + ')" class="btn btn-info"><i class="fa fa-search-plus"></i></button></td>'}</tr>
                     `;
 
                 if (counter == transactions.length) {
@@ -1990,28 +1940,28 @@ function loadTransactions() {
 
                     const result = {};
 
-                    for (const { product_name, price, quantity, id } of sold_items) {
+                    for (const {product_name, price, quantity, id} of sold_items) {
                         if (!result[product_name]) result[product_name] = [];
-                        result[product_name].push({ id, price, quantity });
+                        result[product_name].push({id, price, quantity});
                     }
 
                     for (item in result) {
 
-                        let price = 0;
+                        let price    = 0;
                         let quantity = 0;
-                        let id = 0;
+                        let id       = 0;
 
                         result[item].forEach(i => {
-                            id = i.id;
+                            id    = i.id;
                             price = i.price;
                             quantity += i.quantity;
                         });
 
                         sold.push({
-                            id: id,
+                            id     : id,
                             product: item,
-                            qty: quantity,
-                            price: price
+                            qty    : quantity,
+                            price  : price,
                         });
                     }
 
@@ -2027,24 +1977,23 @@ function loadTransactions() {
 
                     $('#transaction_list').html(transaction_list);
                     $('#transactionList').DataTable({
-                        "order": [[1, "desc"]]
-                        , "autoWidth": false
-                        , "info": true
-                        , "JQueryUI": true
-                        , "ordering": true
-                        , "paging": true,
-                        "dom": 'Bfrtip',
-                        "buttons": ['csv', 'excel', 'pdf',]
+                        'order'      : [[1, 'desc']]
+                        , 'autoWidth': false
+                        , 'info'     : true
+                        , 'JQueryUI' : true
+                        , 'ordering' : true
+                        , 'paging'   : true,
+                        'dom'        : 'Bfrtip',
+                        'buttons'    : ['csv', 'excel', 'pdf'],
 
                     });
                 }
             });
-        }
-        else {
+        } else {
             Swal.fire(
                 'No data!',
                 'No transactions available within the selected criteria',
-                'warning'
+                'warning',
             );
         }
 
@@ -2067,10 +2016,10 @@ function loadSoldProducts() {
 
     sold.sort(discend);
 
-    let counter = 0;
+    let counter   = 0;
     let sold_list = '';
-    let items = 0;
-    let products = 0;
+    let items     = 0;
+    let products  = 0;
     $('#product_sales').empty();
 
     sold.forEach((item, index) => {
@@ -2131,32 +2080,34 @@ $.fn.viewTransaction = function (index) {
 
     transaction_index = index;
 
-    let discount = allTransactions[index].discount;
-    let customer = allTransactions[index].customer == 0 ? 'Walk in Customer' : allTransactions[index].customer.username;
-    let refNumber = allTransactions[index].ref_number != "" ? allTransactions[index].ref_number : allTransactions[index].order;
+    let discount    = allTransactions[index].discount;
+    let customer    = allTransactions[index].customer == 0 ? 'Walk in Customer' : allTransactions[index].customer.username;
+    let refNumber   = allTransactions[index].ref_number != '' ? allTransactions[index].ref_number : allTransactions[index].order;
     let orderNumber = allTransactions[index].order;
-    let type = "";
-    let tax_row = "";
-    let items = "";
-    let products = allTransactions[index].items;
+    let type        = '';
+    let tax_row     = '';
+    let items       = '';
+    let products    = allTransactions[index].items;
 
     products.forEach(item => {
-        items += "<tr><td>" + item.product_name + "</td><td>" + item.quantity + "</td><td>" + settings.symbol + parseFloat(item.price).toFixed(2) + "</td></tr>";
+        items += '<tr><td>' + item.product_name + '</td><td>' + item.quantity + '</td><td>' + settings.symbol + parseFloat(item.price).toFixed(2) + '</td></tr>';
 
     });
 
 
     switch (allTransactions[index].payment_type) {
 
-        case 2: type = "Card";
+        case 2:
+            type = 'Card';
             break;
 
-        default: type = "Cash";
+        default:
+            type = 'Cash';
 
     }
 
 
-    if (allTransactions[index].paid != "") {
+    if (allTransactions[index].paid != '') {
         payment = `<tr>
                     <td>Paid</td>
                     <td>:</td>
@@ -2175,7 +2126,6 @@ $.fn.viewTransaction = function (index) {
     }
 
 
-
     if (settings.charge_tax) {
         tax_row = `<tr>
                 <td>Vat(${settings.percentage})% </td>
@@ -2185,10 +2135,9 @@ $.fn.viewTransaction = function (index) {
     }
 
 
-
     receipt = `<div style="font-size: 10px;">                            
         <p style="text-align: center;">
-        ${settings.img == "" ? settings.img : '<img style="max-width: 50px;max-width: 100px;" src ="' + img_path + settings.img + '" /><br>'}
+        ${settings.img == '' ? settings.img : '<img style="max-width: 50px;max-width: 100px;" src ="' + img_path + settings.img + '" /><br>'}
             <span style="font-size: 22px;">${settings.store}</span> <br>
             ${settings.address_one} <br>
             ${settings.address_two} <br>
@@ -2263,7 +2212,6 @@ $('#status').change(function () {
 });
 
 
-
 $('#tills').change(function () {
     by_till = $(this).find('option:selected').val();
     loadTransactions();
@@ -2279,10 +2227,10 @@ $('#users').change(function () {
 $('#reportrange').on('apply.daterangepicker', function (ev, picker) {
 
     start = picker.startDate.format('DD MMM YYYY hh:mm A');
-    end = picker.endDate.format('DD MMM YYYY hh:mm A');
+    end   = picker.endDate.format('DD MMM YYYY hh:mm A');
 
     start_date = picker.startDate.toDate().toJSON();
-    end_date = picker.endDate.toDate().toJSON();
+    end_date   = picker.endDate.toDate().toJSON();
 
 
     loadTransactions();
@@ -2293,49 +2241,47 @@ function authenticate() {
     $('#loading').append(
         `<div id="load"><form id="account"><div class="form-group"><input type="text" placeholder="Username" name="username" class="form-control"></div>
         <div class="form-group"><input type="password" placeholder="Password" name="password" class="form-control"></div>
-        <div class="form-group"><input type="submit" class="btn btn-block btn-default" value="Login"></div></form>`
+        <div class="form-group"><input type="submit" class="btn btn-block btn-default" value="Login"></div></form>`,
     );
 }
 
 
-$('body').on("submit", "#account", function (e) {
+$('body').on('submit', '#account', function (e) {
     e.preventDefault();
     let formData = $(this).serializeObject();
 
-    if (formData.username == "" || formData.password == "") {
+    if (formData.username == '' || formData.password == '') {
 
         Swal.fire(
             'Incomplete form!',
             auth_empty,
-            'warning'
+            'warning',
         );
-    }
-    else {
+    } else {
 
         $.ajax({
-            url: api + 'users/login',
-            type: 'POST',
-            data: JSON.stringify(formData),
+            url        : api + 'users/login',
+            type       : 'POST',
+            data       : JSON.stringify(formData),
             contentType: 'application/json; charset=utf-8',
-            cache: false,
+            cache      : false,
             processData: false,
-            success: function (data) {
+            success    : function (data) {
                 if (data._id) {
-                    storage.set('auth', { auth: true });
+                    storage.set('auth', {auth: true});
                     storage.set('user', data);
                     ipcRenderer.send('app-reload', '');
-                }
-                else {
+                } else {
                     Swal.fire(
                         'Oops!',
                         auth_error,
-                        'warning'
+                        'warning',
                     );
                 }
 
-            }, error: function (data) {
+            }, error   : function (data) {
                 console.log(data);
-            }
+            },
         });
     }
 });
@@ -2343,13 +2289,13 @@ $('body').on("submit", "#account", function (e) {
 
 $('#quit').click(function () {
     Swal.fire({
-        title: 'Are you sure?',
-        text: "You are about to close the application.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#d33',
-        cancelButtonColor: '#3085d6',
-        confirmButtonText: 'Close Application'
+        title             : 'Are you sure?',
+        text              : 'You are about to close the application.',
+        icon              : 'warning',
+        showCancelButton  : true,
+        confirmButtonColor: '#dd3333',
+        cancelButtonColor : '#3085d6',
+        confirmButtonText : 'Close Application',
     }).then((result) => {
 
         if (result.value) {
@@ -2357,5 +2303,3 @@ $('#quit').click(function () {
         }
     });
 });
-
-
